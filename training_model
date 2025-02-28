@@ -1,0 +1,75 @@
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+
+# Define the path to your data file
+file_path = 'D:/Predictive_Maintenance/data/train_FD001.txt'
+
+# Define column names based on your dataset's description
+column_names = [
+    "unit_number", "time_in_cycles", "operational_setting_1", "operational_setting_2", 
+    "operational_setting_3", "sensor_1", "sensor_2", "sensor_3", "sensor_4", 
+    "sensor_5", "sensor_6", "sensor_7", "sensor_8", "sensor_9", "sensor_10", 
+    "sensor_11", "sensor_12", "sensor_13", "sensor_14", "sensor_15", "sensor_16", 
+    "sensor_17", "sensor_18", "sensor_19", "sensor_20", "sensor_21"
+]
+
+# Load the data (ensure it's space-separated as your file might be)
+df = pd.read_csv(file_path, sep='\s+', header=None, names=column_names, engine='python')
+
+# Drop columns with all NaN values (if any)
+df.dropna(axis=1, how='all', inplace=True)
+
+# Fill any remaining NaN values with column medians
+df.fillna(df.median(), inplace=True)
+
+# Generate the RUL (Remaining Useful Life) column
+max_cycles = df.groupby("unit_number")["time_in_cycles"].max()  # Get max cycle per unit
+df["RUL"] = df["unit_number"].map(max_cycles) - df["time_in_cycles"]  # Compute RUL
+
+# Identify sensor columns
+sensor_columns = [col for col in df.columns if 'sensor' in col]
+
+# Apply MinMax scaling only to the sensor columns
+scaler = MinMaxScaler()
+df[sensor_columns] = scaler.fit_transform(df[sensor_columns])
+
+# Define features (X) and target (y)
+X = df.drop('RUL', axis=1)  # Features: drop the RUL column to get the features
+y = df['RUL']  # Target: RUL (Remaining Useful Life)
+
+# Split the data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Save the preprocessed data with RUL column to a file
+df.to_csv('D:/Predictive_Maintenance/data/preprocessed_data_with_rul.csv', index=False)
+
+
+# Step 1: Create the RandomForestRegressor model
+rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+
+# Step 2: Train the model
+rf_model.fit(X_train, y_train)
+
+# Step 3: Evaluate the model
+y_pred = rf_model.predict(X_val)
+
+# Calculate error or other metrics (e.g., MAE)
+mae = mean_absolute_error(y_val, y_pred)
+print(f"Mean Absolute Error: {mae}")
+
+# Train the model
+rf_model.fit(X_train, y_train)
+
+
+    # Print out basic info and first few rows of the preprocessed data
+#print(df.info())
+#print(df.head())
+
+    # Print the shape of the split data
+#print(f"Training data shape: X_train: {X_train.shape}, y_train: {y_train.shape}")
+#print(f"Validation data shape: X_val: {X_val.shape}, y_val: {y_val.shape}")
+#print(df.var())
